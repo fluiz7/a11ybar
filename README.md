@@ -54,6 +54,12 @@ window.A11ybarConfig = {
 // manual mode: set window.A11ybarManual = true and call a11ybar.init(config) yourself
 ```
 
+**Preserving meaningful colours in contrast mode:** the high-contrast palette forces backgrounds to black (like OS high-contrast modes do). Elements whose colours *carry information* — charts, colour swatches, status indicators — can opt out with the `data-a11ybar-keep` attribute:
+
+```html
+<canvas id="grafico-vendas" data-a11ybar-keep></canvas>
+```
+
 ## Limitations (honest ones)
 
 - Text scaling follows sites that size text in `rem`/`%` (best practice); fixed `px` typography won't scale — that's a bug in the page, and a11ybar won't paper over it with DOM-walking hacks.

@@ -112,6 +112,16 @@ describe("reduced motion (WCAG 2.3.3)", () => {
   });
 });
 
+describe("contrast palette exclusions", () => {
+  it("excludes toolbar, VLibras and data-a11ybar-keep from the forced palette", async () => {
+    await boot();
+    const css = [...document.head.querySelectorAll("style")].map((s) => s.textContent).join("");
+    expect(css).toContain(":not(.a11ybar)");
+    expect(css).toContain(":not([vw])");
+    expect(css).toContain(":not([data-a11ybar-keep])");
+  });
+});
+
 describe("keyboard navigation (APG toolbar pattern)", () => {
   it("has exactly one tab stop (roving tabindex)", async () => {
     const bar = await boot();

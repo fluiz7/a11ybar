@@ -39,8 +39,12 @@
      and one CSS custom property, so there is no per-element JS loop and
      no page reload — state flips are O(1). */
   /* ------------------------------------------------------------------ */
-  /* selectors excluded from the forced high-contrast palette */
-  var NX = ":not(.a11ybar):not(.a11ybar *):not([vw]):not([vw] *)";
+  /* Selectors excluded from the forced high-contrast palette: the toolbar
+     itself, the VLibras widget, and anything the page marks with
+     data-a11ybar-keep (elements whose colours carry meaning — charts,
+     colour swatches, brand marks). */
+  var NX = ":not(.a11ybar):not(.a11ybar *):not([vw]):not([vw] *)" +
+           ":not([data-a11ybar-keep]):not([data-a11ybar-keep] *)";
 
   var CSS = [
     /* --- toolbar shell (WCAG 2.5.8/2.5.5: targets >= 44px) --- */
