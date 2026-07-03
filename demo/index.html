@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>a11ybar — demonstração</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: system-ui, sans-serif; max-width: 72ch; margin: 0 auto; padding: 2rem 1rem 6rem; line-height: 1.5; color: #222; }
+    h1 { font-size: 2rem; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 1rem 1.25rem; margin: 1rem 0; }
+    .pulse { width: 60px; height: 60px; border-radius: 50%; background: #e94560; animation: pulse 1.2s infinite alternate; }
+    @keyframes pulse { from { transform: scale(1); opacity: .6; } to { transform: scale(1.35); opacity: 1; } }
+    a { color: #0f3460; text-decoration: none; }
+    footer { margin-top: 3rem; font-size: .9rem; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>a11ybar — demonstração</h1>
+  <p>
+    Esta página demonstra a <strong>barra de acessibilidade</strong> (canto inferior direito).
+    Experimente: aumente a fonte (<kbd>A+</kbd>), ative o alto contraste (◐), o conforto de
+    leitura (≡), pause a animação abaixo (⏸) ou sublinhe os links (⎁). As preferências
+    persistem ao recarregar a página — sem <code>reload</code>, sem dependências.
+  </p>
+
+  <div class="card">
+    <h2>Animação de teste</h2>
+    <p>O círculo abaixo pulsa continuamente — use o botão ⏸ para pausá-lo (WCAG 2.2.2):</p>
+    <div class="pulse" aria-hidden="true"></div>
+  </div>
+
+  <div class="card">
+    <h2>Links de teste</h2>
+    <p>
+      Links nesta página <a href="https://www.gov.br/governodigital/pt-br/acessibilidade-e-usuario/acessibilidade-digital/emag">não são sublinhados por padrão</a> —
+      apenas coloridos, o que viola a WCAG 1.4.1 para quem não distingue cores.
+      Ative o botão ⎁ e veja <a href="https://www.w3.org/TR/WCAG22/">todos os links ganharem sublinhado</a>.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Texto para conforto de leitura</h2>
+    <p>
+      A acessibilidade cognitiva pede espaçamento generoso entre letras, palavras e linhas.
+      O botão ≡ aplica exatamente os mínimos da WCAG 1.4.12 (altura de linha 1,5+, espaçamento
+      de letras 0,12em, de palavras 0,16em) — um alívio real para pessoas com dislexia.
+    </p>
+  </div>
+
+  <footer>
+    <p>a11ybar é software livre (MIT) — nascido do trabalho de monitoria em acessibilidade digital (EMAR/UFRJ).</p>
+  </footer>
+
+  <script>
+    window.A11ybarConfig = { lang: "pt-BR", position: "bottom-right", vlibras: true };
+  </script>
+  <script src="../src/a11ybar.js"></script>
+</body>
+</html>
