@@ -21,6 +21,8 @@ Born from real accessibility-audit work at **UFRJ** (EMAR — student monitors f
 
 That's it — no build step, no framework, no CSS file. **[Try the live demo →](https://fluiz7.github.io/a11ybar/demo/)**
 
+![a11ybar in action: text scaling, reading comfort, motion pause, link underlining, high contrast and VLibras](docs/demo.gif)
+
 ## Features → standards map
 
 | Button | What it does | Grounded in |
