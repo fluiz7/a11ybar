@@ -25,7 +25,7 @@ That's it — no build step, no framework, no CSS file. **[Try the live demo →
 | Button | What it does | Grounded in |
 |---|---|---|
 | `A−` / `A+` | Text scaling via **one CSS custom property** on `:root` (no per-element loop, no reload) | WCAG **1.4.4** Resize Text · eMAG rec. 28 |
-| ◐ | High contrast (full-page inversion; images/video re-inverted back) | WCAG **1.4.3/1.4.6** Contrast · eMAG 4.1 |
+| ◐ | High contrast — curated eMAG-style palette (black bg 21:1, cyan links 16.7:1, yellow controls 19.6:1) + yellow `:focus-visible` everywhere; media keeps real colours | WCAG **1.4.3/1.4.6** Contrast · **2.4.7** Focus Visible · eMAG 4.1 |
 | ≡ | Reading comfort: applies the WCAG text-spacing minimums (line 1.5+, letter .12em, word .16em) | WCAG **1.4.12** Text Spacing · dyslexia guidance |
 | ⏸ | Pauses all CSS animations/transitions/smooth-scroll | WCAG **2.2.2** Pause, Stop, Hide · **2.3.3** Animation from Interactions · GAIA (autism) |
 | ⎁ | Underlines every link — colour is never the only cue | WCAG **1.4.1** Use of Color |
@@ -51,12 +51,10 @@ window.A11ybarConfig = {
 // manual mode: set window.A11ybarManual = true and call a11ybar.init(config) yourself
 ```
 
-Elements that should **not** be re-inverted in contrast mode (e.g. an already-dark logo) can opt out with `data-a11ybar-noinvert`.
-
 ## Limitations (honest ones)
 
 - Text scaling follows sites that size text in `rem`/`%` (best practice); fixed `px` typography won't scale — that's a bug in the page, and a11ybar won't paper over it with DOM-walking hacks.
-- High contrast uses inversion for universality; a curated palette per-site is always superior when you control the CSS.
+- High contrast forces a black/white/cyan/yellow palette with `!important` — deliberate (it must win over any page CSS), but a palette hand-tuned per-site is always superior when you control the stylesheet. No CSS `filter` is used: filters on the root element break `position:fixed` widgets (including VLibras) and wash colours out.
 - VLibras loads an external government script — hence opt-in.
 
 ## Roadmap

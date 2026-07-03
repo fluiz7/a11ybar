@@ -54,11 +54,22 @@
     /* --- page effects --- */
     /* font scale: one custom property, rem-based sites follow automatically */
     "html.a11ybar-font{font-size:calc(100% * var(--a11ybar-font-scale,1)) !important}",
-    /* high contrast: full-page inversion, media re-inverted back */
-    "html.a11ybar-contrast{filter:invert(1) hue-rotate(180deg);background:#000}",
-    "html.a11ybar-contrast img,html.a11ybar-contrast video,html.a11ybar-contrast picture,",
-    "html.a11ybar-contrast iframe,html.a11ybar-contrast [data-a11ybar-noinvert]",
-    "{filter:invert(1) hue-rotate(180deg)}",
+    /* high contrast: curated eMAG-style palette (no CSS filter — filters on the
+       root break position:fixed widgets like VLibras and wash colours out).
+       Black bg + white text (21:1), cyan links (16.7:1), yellow controls/focus
+       (19.6:1) — all above WCAG 1.4.6 AAA. Media keeps its real colours. */
+    "html.a11ybar-contrast,html.a11ybar-contrast body{background:#000 !important;color:#fff !important}",
+    "html.a11ybar-contrast body *:not(.a11ybar):not(.a11ybar *)",
+    "{background-color:#000 !important;color:#fff !important;border-color:#fff !important;",
+    "box-shadow:none !important;text-shadow:none !important}",
+    "html.a11ybar-contrast a:not(.a11ybar *),html.a11ybar-contrast a:not(.a11ybar *) *",
+    "{color:#0ff !important;text-decoration:underline !important}",
+    "html.a11ybar-contrast button:not(.a11ybar *),html.a11ybar-contrast input:not(.a11ybar *),",
+    "html.a11ybar-contrast select:not(.a11ybar *),html.a11ybar-contrast textarea:not(.a11ybar *)",
+    "{background:#000 !important;color:#ff0 !important;border:2px solid #ff0 !important}",
+    "html.a11ybar-contrast img,html.a11ybar-contrast video{filter:none !important}",
+    /* visible focus everywhere while in contrast mode (eMAG focus pattern) */
+    "html.a11ybar-contrast :focus-visible{outline:3px solid #ff0 !important;outline-offset:2px}",
     /* reading comfort: WCAG 1.4.12 text-spacing minimums */
     "html.a11ybar-spacing body *{line-height:1.6 !important;letter-spacing:.12em !important;",
     "word-spacing:.16em !important}",
