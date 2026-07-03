@@ -13,9 +13,13 @@
     @keyframes pulse { from { transform: scale(1); opacity: .6; } to { transform: scale(1.35); opacity: 1; } }
     a { color: #0f3460; text-decoration: none; }
     footer { margin-top: 3rem; font-size: .9rem; color: #555; }
+    .skip-link { position: absolute; left: -9999px; }
+    .skip-link:focus { position: static; display: inline-block; padding: .5rem 1rem; background: #0f3460; color: #fff; }
   </style>
 </head>
 <body>
+  <a href="#conteudo" class="skip-link">Pular para o conteúdo</a>
+  <main id="conteudo" tabindex="-1">
   <h1>a11ybar — demonstração</h1>
   <p>
     Esta página demonstra a <strong>barra de acessibilidade</strong> (canto inferior direito).
@@ -51,6 +55,7 @@
   <footer>
     <p>a11ybar é software livre (MIT) — nascido do trabalho de monitoria em acessibilidade digital (EMAR/UFRJ).</p>
   </footer>
+  </main>
 
   <script>
     window.A11ybarConfig = { lang: "pt-BR", position: "bottom-right", vlibras: true };
