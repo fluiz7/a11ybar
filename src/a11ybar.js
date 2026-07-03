@@ -39,6 +39,9 @@
      and one CSS custom property, so there is no per-element JS loop and
      no page reload — state flips are O(1). */
   /* ------------------------------------------------------------------ */
+  /* selectors excluded from the forced high-contrast palette */
+  var NX = ":not(.a11ybar):not(.a11ybar *):not([vw]):not([vw] *)";
+
   var CSS = [
     /* --- toolbar shell (WCAG 2.5.8/2.5.5: targets >= 44px) --- */
     ".a11ybar{position:fixed;z-index:2147483646;display:flex;gap:4px;padding:6px;",
@@ -59,13 +62,16 @@
        Black bg + white text (21:1), cyan links (16.7:1), yellow controls/focus
        (19.6:1) — all above WCAG 1.4.6 AAA. Media keeps its real colours. */
     "html.a11ybar-contrast,html.a11ybar-contrast body{background:#000 !important;color:#fff !important}",
-    "html.a11ybar-contrast body *:not(.a11ybar):not(.a11ybar *)",
+    /* NX below: the toolbar itself and the VLibras widget ([vw] subtree) keep
+       their own styling — forcing black onto them made VLibras invisible. */
+    "html.a11ybar-contrast body *" + NX,
     "{background-color:#000 !important;color:#fff !important;border-color:#fff !important;",
     "box-shadow:none !important;text-shadow:none !important}",
-    "html.a11ybar-contrast a:not(.a11ybar *),html.a11ybar-contrast a:not(.a11ybar *) *",
+    /* `body a` (not bare `a`) so this outranks the generic rule above */
+    "html.a11ybar-contrast body a" + NX + ",html.a11ybar-contrast body a" + NX + " *",
     "{color:#0ff !important;text-decoration:underline !important}",
-    "html.a11ybar-contrast button:not(.a11ybar *),html.a11ybar-contrast input:not(.a11ybar *),",
-    "html.a11ybar-contrast select:not(.a11ybar *),html.a11ybar-contrast textarea:not(.a11ybar *)",
+    "html.a11ybar-contrast body button" + NX + ",html.a11ybar-contrast body input" + NX + ",",
+    "html.a11ybar-contrast body select" + NX + ",html.a11ybar-contrast body textarea" + NX,
     "{background:#000 !important;color:#ff0 !important;border:2px solid #ff0 !important}",
     "html.a11ybar-contrast img,html.a11ybar-contrast video{filter:none !important}",
     /* visible focus everywhere while in contrast mode (eMAG focus pattern) */
