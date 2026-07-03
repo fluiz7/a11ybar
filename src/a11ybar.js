@@ -130,10 +130,28 @@
       '<div vw-access-button class="active"></div>' +
       '<div vw-plugin-wrapper><div class="vw-plugin-top-wrapper"></div></div>';
     document.body.appendChild(host);
+
+    /* The official gov.br script is a LOADER that chains the real plugin from a
+       CDN, and the real plugin initialises itself by assigning window.onload —
+       which has already fired by the time the user clicks. So: poll until the
+       real plugin arrives, instantiate the widget, then invoke the plugin's
+       onload hook ourselves (it chains any previous handler internally). */
     var s = document.createElement("script");
     s.src = "https://vlibras.gov.br/app/vlibras-plugin.js";
-    s.onload = function () { new window.VLibras.Widget("https://vlibras.gov.br/app"); };
     document.body.appendChild(s);
+
+    var tries = 0;
+    var timer = setInterval(function () {
+      tries += 1;
+      if (window.VLibras && typeof window.VLibras.Widget === "function") {
+        clearInterval(timer);
+        new window.VLibras.Widget("https://vlibras.gov.br/app");
+        if (typeof window.onload === "function") window.onload();
+      } else if (tries > 100) { /* ~20s: CDN unreachable — allow a retry */
+        clearInterval(timer);
+        vlibrasLoaded = false;
+      }
+    }, 200);
   }
 
   /* ------------------------------------------------------------------ */
