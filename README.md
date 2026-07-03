@@ -2,6 +2,7 @@
 
 > A **zero-dependency accessibility toolbar** you can drop into any website with one `<script>` tag: text scaling, high contrast, reading comfort, motion pause, link underlining and optional **VLibras** (Brazilian Sign Language) — every feature mapped to **WCAG 2.2, eMAG 3.1 and ABNT NBR 17225:2025**.
 
+[![CI](https://github.com/fluiz7/a11ybar/actions/workflows/ci.yml/badge.svg)](https://github.com/fluiz7/a11ybar/actions/workflows/ci.yml)
 ![JavaScript](https://img.shields.io/badge/JavaScript-vanilla%2C%20zero%20deps-F7DF1E?style=flat&logo=javascript&logoColor=black)
 ![WCAG 2.2](https://img.shields.io/badge/WCAG-2.2-005A9C?style=flat)
 ![eMAG 3.1](https://img.shields.io/badge/eMAG-3.1-1351B4?style=flat)
@@ -57,9 +58,17 @@ window.A11ybarConfig = {
 - High contrast forces a black/white/cyan/yellow palette with `!important` — deliberate (it must win over any page CSS), but a palette hand-tuned per-site is always superior when you control the stylesheet. No CSS `filter` is used: filters on the root element break `position:fixed` widgets (including VLibras) and wash colours out.
 - VLibras loads an external government script — hence opt-in.
 
+## Testing
+
+12 behavioural tests (vitest + jsdom) cover the ARIA structure, font scaling, `aria-pressed` state, persistence, `prefers-reduced-motion` and the roving-tabindex keyboard pattern:
+
+```bash
+npm install
+npm test
+```
+
 ## Roadmap
 
-- Unit tests (jsdom) + CI
 - npm package + CDN build
 - Sister project: an **eMAG/ABNT-aware audit CLI** that generates instructional reports in the format Brazilian public institutions actually need.
 
