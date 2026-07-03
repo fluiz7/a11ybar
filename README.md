@@ -18,7 +18,7 @@ Born from real accessibility-audit work at **UFRJ** (EMAR — student monitors f
 <script src="a11ybar.js"></script>
 ```
 
-That's it — no build step, no framework, no CSS file. Try the [demo page](demo/index.html).
+That's it — no build step, no framework, no CSS file. **[Try the live demo →](https://fluiz7.github.io/a11ybar/demo/)**
 
 ## Features → standards map
 
