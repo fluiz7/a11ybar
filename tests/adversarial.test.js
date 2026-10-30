@@ -183,7 +183,9 @@ describe("VLibras (official plugin v7)", () => {
     first[0].onerror();
     vi.advanceTimersByTime(60);
     expect(bar.querySelector('[role="status"]').textContent).toMatch(/Não foi possível carregar o VLibras/);
-    btn(bar, VL).click(); // retry is allowed
-    expect([...document.scripts].filter((s) => /vlibras/.test(s.src))).toHaveLength(2);
+    btn(bar, VL).click(); // retry is allowed...
+    const now = [...document.scripts].filter((s) => /vlibras/.test(s.src));
+    expect(now).toHaveLength(1);         // ...and the failed tag was removed, not piled up
+    expect(now[0]).not.toBe(first[0]);   // it is a fresh attempt
   });
 });

@@ -30,7 +30,7 @@ That's it — no build step, no framework, no CSS file. **[Try the live demo →
 | `A−` / `A+` | Text scaling via **one CSS custom property** on `:root` (no per-element loop, no reload). It **multiplies the site's own root size**, so `html{font-size:62.5%}` sites step 1.15× instead of jumping 1.84× | WCAG **1.4.4** Resize Text · eMAG rec. 28 |
 | ◐ | High contrast — curated eMAG-style palette (black bg 21:1, cyan links 16.7:1, yellow controls 19.6:1) + yellow `:focus-visible` everywhere; media keeps real colours | WCAG **1.4.3/1.4.6** Contrast · **2.4.7** Focus Visible · eMAG 4.1 |
 | ≡ | Reading comfort: applies the WCAG text-spacing minimums (line 1.5+, letter .12em, word .16em) | WCAG **1.4.12** Text Spacing · dyslexia guidance |
-| ⏸ | Pauses all CSS animations/transitions/smooth-scroll **and autoplaying video/audio** | WCAG **2.2.2** Pause, Stop, Hide · **2.3.3** Animation from Interactions · GAIA (autism) |
+| ⏸ | Pauses all CSS animations/transitions/smooth-scroll **and autoplaying video/audio** — including media that starts later (SPA players), on every path: the button, the OS preference at boot, saved prefs after a reload, and reset | WCAG **2.2.2** Pause, Stop, Hide · **2.3.3** Animation from Interactions · GAIA (autism) |
 | ⎁ | Underlines every link — colour is never the only cue | WCAG **1.4.1** Use of Color |
 | 🤟 | Loads the official [VLibras](https://vlibras.gov.br) widget on demand (opt-in) and **opens Libras in one click** (plugin v7 API) | Lei 13.146/2015 (LBI) · eMAG |
 | ↺ | Restores defaults — and forgets saved prefs, so the OS `prefers-reduced-motion` keeps applying | WCAG 2.3.3 |
@@ -43,7 +43,8 @@ That's it — no build step, no framework, no CSS file. **[Try the live demo →
 - Targets are **≥ 44×44 px** (WCAG 2.5.5/2.5.8) with a strong `:focus-visible` indicator (WCAG 2.4.7).
 - State changes are **O(1) class flips** on `<html>` — no page reload, scroll position preserved.
 - Preferences persist in `localStorage`; on first visit, **`prefers-reduced-motion` is honoured** automatically (WCAG 2.3.3).
-- **Robust by default:** it still renders where storage is blocked (Safari private mode, sandboxed iframes), ignores corrupted saved prefs, and initialises once even if the script is included twice.
+- **Robust by default:** it still renders where storage is blocked (Safari private mode, sandboxed iframes), ignores corrupted saved prefs, validates its own config (an unknown `position` falls back to `bottom-right`), and initialises once even if the script is included twice.
+- **Page effects never restyle the toolbar or the VLibras widget** — neither the contrast palette nor the reading-comfort spacing.
 
 ## Configuration
 
@@ -71,7 +72,7 @@ window.A11ybarConfig = {
 
 ## Testing
 
-28 behavioural tests (vitest + jsdom) cover the ARIA structure, font scaling, `aria-pressed` state, persistence, `prefers-reduced-motion` and the roving-tabindex keyboard pattern. [`tests/adversarial.test.js`](tests/adversarial.test.js) pins every failure found in an adversarial review — blocked storage, corrupted prefs, double init, the VLibras `onload` side effect, reset vs. OS preferences — and the VLibras v7 flow was also verified in a real browser.
+47 behavioural tests (vitest + jsdom) cover the ARIA structure, font scaling, `aria-pressed` state, persistence, `prefers-reduced-motion` and the roving-tabindex keyboard pattern. [`tests/adversarial.test.js`](tests/adversarial.test.js) and [`tests/review-round2.test.js`](tests/review-round2.test.js) pin every failure found in two adversarial reviews — blocked storage, corrupted prefs, double init, the VLibras `onload` side effect, reset vs. OS preferences — and the VLibras v7 flow was also verified in a real browser.
 
 ```bash
 npm install

@@ -50,9 +50,11 @@
      and the legacy [vw] markup), and anything the page marks with
      data-a11ybar-keep (elements whose colours carry meaning — charts,
      colour swatches, brand marks). */
-  var NX = ":not(.a11ybar):not(.a11ybar *):not([vw]):not([vw] *)" +
-           ":not(#vlibras-access-wrapper):not(#vlibras-app-root):not(#vlibras-app-root *)" +
-           ":not([data-a11ybar-keep]):not([data-a11ybar-keep] *)";
+  /* UI that must keep its own typography and colours: the toolbar and the VLibras widget. */
+  var OWN_UI = ":not(.a11ybar):not(.a11ybar *):not([vw]):not([vw] *)" +
+               ":not(#vlibras-access-wrapper):not(#vlibras-access-wrapper *)" +
+               ":not(#vlibras-app-root):not(#vlibras-app-root *)";
+  var NX = OWN_UI + ":not([data-a11ybar-keep]):not([data-a11ybar-keep] *)";
 
   var CSS = [
     /* --- toolbar shell (WCAG 2.5.8/2.5.5: targets >= 44px) --- */
@@ -80,7 +82,9 @@
     "{background-color:#000 !important;color:#fff !important;border-color:#fff !important;",
     "box-shadow:none !important;text-shadow:none !important}",
     /* `body a` (not bare `a`) so this outranks the generic rule above */
-    "html.a11ybar-contrast body a" + NX + ",html.a11ybar-contrast body a" + NX + " *",
+    /* NX goes on BOTH the link and its descendants: attached only to `a`, a
+       data-a11ybar-keep badge inside a link still matched `a:not(…) *` and turned cyan */
+    "html.a11ybar-contrast body a" + NX + ",html.a11ybar-contrast body a " + "*" + NX,
     "{color:#0ff !important;text-decoration:underline !important}",
     "html.a11ybar-contrast body button" + NX + ",html.a11ybar-contrast body input" + NX + ",",
     "html.a11ybar-contrast body select" + NX + ",html.a11ybar-contrast body textarea" + NX,
@@ -89,9 +93,10 @@
     /* visible focus everywhere while in contrast mode (eMAG focus pattern) */
     "html.a11ybar-contrast :focus-visible{outline:3px solid #ff0 !important;outline-offset:2px}",
     /* reading comfort: WCAG 1.4.12 text-spacing minimums */
-    "html.a11ybar-spacing body *{line-height:1.6 !important;letter-spacing:.12em !important;",
+    /* (OWN_UI: the toolbar's own buttons and the VLibras widget keep their spacing) */
+    "html.a11ybar-spacing body *" + OWN_UI + "{line-height:1.6 !important;letter-spacing:.12em !important;",
     "word-spacing:.16em !important}",
-    "html.a11ybar-spacing body p{margin-bottom:2em !important}",
+    "html.a11ybar-spacing body p" + OWN_UI + "{margin-bottom:2em !important}",
     /* motion pause: freezes CSS animation/transition/smooth-scroll (WCAG 2.2.2 / 2.3.3) */
     "html.a11ybar-motion *,html.a11ybar-motion *::before,html.a11ybar-motion *::after",
     "{animation-play-state:paused !important;transition:none !important;scroll-behavior:auto !important}",
@@ -164,6 +169,9 @@
     root.classList.toggle("a11ybar-spacing", state.spacing);
     root.classList.toggle("a11ybar-motion", state.motion);
     root.classList.toggle("a11ybar-links", state.links);
+    /* every path that turns motion pause on goes through here: the button, the OS
+       preference at boot, saved prefs after a reload, and reset */
+    pauseAutoplayMedia();
   }
 
   /* ------------------------------------------------------------------ */
@@ -188,10 +196,22 @@
 
     var s = document.createElement("script");
     s.src = VLIBRAS_SRC;
-    s.onerror = function () { vlibrasLoading = false; onFail(); };
+    /* every failure path releases the lock AND removes the failed tag, so a retry
+       starts clean instead of piling <script> elements into the page */
+    function fail() {
+      vlibrasLoading = false;
+      if (s.parentNode) s.parentNode.removeChild(s);
+      onFail();
+    }
+    s.onerror = fail;
     s.onload = function () {
-      if (window.VLibras && typeof window.VLibras.Widget === "function") {
-        new window.VLibras.Widget("https://vlibras.gov.br/app"); /* idempotent in v7 */
+      try {
+        if (window.VLibras && typeof window.VLibras.Widget === "function") {
+          new window.VLibras.Widget("https://vlibras.gov.br/app"); /* idempotent in v7 */
+        }
+      } catch (e) {
+        fail(); /* a throwing plugin must not leave the button locked forever */
+        return;
       }
       var tries = 0;
       var timer = setInterval(function () {
@@ -202,8 +222,7 @@
           window.VLibrasWidget.open();
         } else if (tries > 50) { /* ~5 s: unexpected plugin API — allow a retry */
           clearInterval(timer);
-          vlibrasLoading = false;
-          onFail();
+          fail();
         }
       }, 100);
     };
@@ -262,7 +281,7 @@
       { glyph: "A+", label: "fontInc", onClick: function () { state.fontStep = Math.min(FONT_STEPS.length - 1, state.fontStep + 1); announceSize(); } },
       { glyph: "◐", label: "contrast", toggle: true, pressed: function () { return state.contrast; }, onClick: function () { state.contrast = !state.contrast; } },
       { glyph: "≡", label: "spacing", toggle: true, pressed: function () { return state.spacing; }, onClick: function () { state.spacing = !state.spacing; } },
-      { glyph: "⏸", label: "motion", toggle: true, pressed: function () { return state.motion; }, onClick: function () { state.motion = !state.motion; pauseAutoplayMedia(); } },
+      { glyph: "⏸", label: "motion", toggle: true, pressed: function () { return state.motion; }, onClick: function () { state.motion = !state.motion; } },
       { glyph: "⎁", label: "links", toggle: true, pressed: function () { return state.links; }, onClick: function () { state.links = !state.links; } }
     ];
     if (config.vlibras) {
@@ -323,10 +342,17 @@
   /* ------------------------------------------------------------------ */
   /* Init                                                                 */
   /* ------------------------------------------------------------------ */
+  var POSITIONS = ["top-right", "top-left", "bottom-right", "bottom-left"];
+
   function init(userConfig) {
     var config = { lang: "pt-BR", position: "bottom-right", vlibras: false };
     var g = userConfig || window.A11ybarConfig || {};
     for (var k in config) if (k in g) config[k] = g[k];
+    /* config is input too: an unknown position (e.g. "top") has no CSS rule, and a
+       position:fixed bar with no coordinates lands over the top of the page */
+    if (POSITIONS.indexOf(config.position) < 0) config.position = "bottom-right";
+    if (!I18N[config.lang]) config.lang = "pt-BR";
+    config.vlibras = config.vlibras === true;
 
     /* Idempotent: a CMS that includes the script twice, or a manual init() on top of
        the automatic one, must not produce two toolbars. */
@@ -336,6 +362,17 @@
     if (!loadState() && prefersReducedMotion()) state.motion = true;
     applyState();
     build(config);
+    var bar = document.querySelector(".a11ybar");
+
+    /* media that starts AFTER boot (autoplay racing init, players injected by an SPA):
+       `play` doesn't bubble, so listen in the capture phase. The listener acts only
+       while ITS toolbar is on the page, so a removed instance never interferes. */
+    document.addEventListener("play", function (ev) {
+      var m = ev.target;
+      if (bar && bar.isConnected && state.motion && m && m.hasAttribute && m.hasAttribute("autoplay")) {
+        try { m.pause(); } catch (e) { /* not supported */ }
+      }
+    }, true);
   }
 
   window.a11ybar = { init: init, _state: function () { return state; } };
