@@ -6,6 +6,11 @@
 (function () {
   "use strict";
 
+  /* Script included twice (a CMS, a theme plus a plugin): the first copy owns the page.
+     A second closure would overwrite window.a11ybar with an instance that never built
+     the toolbar, and every call through it would read the wrong state. */
+  if (window.a11ybar && typeof window.a11ybar.init === "function") return;
+
   var STORAGE_KEY = "a11ybar:prefs";
   var FONT_STEPS = [1, 1.15, 1.3, 1.5];
 
@@ -300,6 +305,10 @@
         /* "default" includes the OS preference: a user who asked the system for reduced
            motion must not get animations back by pressing reset (WCAG 2.3.3) */
         state.motion = prefersReducedMotion();
+        /* "restore defaults" is an explicit choice, like turning pause off and on: a new
+           pause generation, so autoplay media is stopped again as on a fresh load. (Not on
+           re-init: a Turbo-permanent player the user is watching survives navigation.) */
+        pauseGeneration += 1;
         syncPressed();
         announce(t.resetDone);
       }

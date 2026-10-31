@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 async function boot(config = {}, { reducedMotion = false } = {}) {
   vi.resetModules();
+  delete window.a11ybar; // each boot is a fresh page (a second copy defers to the first)
   document.head.innerHTML = "";
   document.body.innerHTML = "<p>page content</p>";
   document.documentElement.className = "";
