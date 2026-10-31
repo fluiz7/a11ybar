@@ -252,9 +252,13 @@
   function build(config) {
     var t = I18N[config.lang] || I18N["pt-BR"];
 
-    var style = document.createElement("style");
-    style.textContent = CSS;
-    document.head.appendChild(style);
+    /* one stylesheet per document: a re-init after a <body> swap must not inject it again */
+    if (!document.head.querySelector("style[data-a11ybar-style]")) {
+      var style = document.createElement("style");
+      style.setAttribute("data-a11ybar-style", "");
+      style.textContent = CSS;
+      document.head.appendChild(style);
+    }
 
     var bar = document.createElement("div");
     bar.className = "a11ybar a11ybar--" + config.position;
@@ -331,12 +335,41 @@
     document.body.insertBefore(bar, document.body.firstChild);
   }
 
-  /* CSS can freeze animations but not media: pause playing autoplay video/audio too (WCAG 2.2.2). */
+  /* CSS can freeze animations but not media: pause autoplaying video/audio too (WCAG 2.2.2).
+     ONCE per element: stopping media that started BY ITSELF is the point; stopping the
+     user's own Play is a barrier (the `autoplay` attribute stays in the DOM, so it can't tell
+     the two apart). Each element is stamped with the current "pause generation"; turning
+     motion pause off and on again starts a new generation, which re-pauses everything. */
+  var pauseGeneration = 1;
+  var lastMotion = false;
+  var ownBar = null; /* the toolbar this instance built */
+
+  function pauseOnce(m) {
+    if (m.__a11ybarPaused === pauseGeneration) return; /* already stopped once: Play is the user's */
+    m.__a11ybarPaused = pauseGeneration;
+    try { m.pause(); } catch (e) { /* not supported */ }
+  }
+
   function pauseAutoplayMedia() {
+    if (lastMotion && !state.motion) pauseGeneration += 1;
+    lastMotion = state.motion;
     if (!state.motion) return;
-    Array.prototype.forEach.call(document.querySelectorAll("video[autoplay], audio[autoplay]"), function (m) {
-      try { m.pause(); } catch (e) { /* not supported */ }
-    });
+    Array.prototype.forEach.call(document.querySelectorAll("video[autoplay], audio[autoplay]"), pauseOnce);
+  }
+
+  /* media that starts AFTER boot (autoplay racing init, players injected by an SPA):
+     `play` doesn't bubble, so listen in the capture phase. One listener per page — a
+     re-init replaces it — and it acts only while a toolbar is on the page. */
+  function onPlay(ev) {
+    var m = ev.target;
+    if (!state.motion || !m || !m.hasAttribute || !m.hasAttribute("autoplay")) return;
+    if (!ownBar || !ownBar.isConnected) return; /* THIS instance's toolbar, not just any */
+    /* a play caused by a real click (user activation, where supported) is always honoured */
+    if (navigator.userActivation && navigator.userActivation.isActive) {
+      m.__a11ybarPaused = pauseGeneration;
+      return;
+    }
+    pauseOnce(m);
   }
 
   /* ------------------------------------------------------------------ */
@@ -358,21 +391,19 @@
        the automatic one, must not produce two toolbars. */
     if (document.querySelector(".a11ybar")) return;
 
+    /* a re-init (SPA/Turbo/HTMX swapped <body> but kept <head>) starts from a clean state:
+       with storage blocked, nothing would otherwise overwrite the previous page's state */
+    state = defaults();
+    lastMotion = false;
+
     /* OS-level preference wins on first visit (WCAG 2.3.3) */
     if (!loadState() && prefersReducedMotion()) state.motion = true;
     applyState();
     build(config);
-    var bar = document.querySelector(".a11ybar");
+    ownBar = document.querySelector(".a11ybar");
 
-    /* media that starts AFTER boot (autoplay racing init, players injected by an SPA):
-       `play` doesn't bubble, so listen in the capture phase. The listener acts only
-       while ITS toolbar is on the page, so a removed instance never interferes. */
-    document.addEventListener("play", function (ev) {
-      var m = ev.target;
-      if (bar && bar.isConnected && state.motion && m && m.hasAttribute && m.hasAttribute("autoplay")) {
-        try { m.pause(); } catch (e) { /* not supported */ }
-      }
-    }, true);
+    document.removeEventListener("play", onPlay, true);
+    document.addEventListener("play", onPlay, true);
   }
 
   window.a11ybar = { init: init, _state: function () { return state; } };

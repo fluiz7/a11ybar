@@ -46,10 +46,12 @@ describe("1. autoplay media is paused on every path that enables motion pause", 
     expect(pause).toHaveBeenCalled();
   });
 
-  it("after reset, when the OS asks for reduced motion", async () => {
+  it("after reset, when the OS asks for reduced motion and the user had turned pause off", async () => {
+    // (round 3: pausing is once per element; reset re-pauses when it turns pause back ON)
     const bar = await boot({}, { reducedMotion: true, body: VIDEO });
+    btn(bar, "Pausar animações e movimentos").click();   // user turns motion pause off
     pause.mockClear();
-    btn(bar, "Restaurar configurações padrão").click();
+    btn(bar, "Restaurar configurações padrão").click();  // reset -> OS preference -> on again
     expect(pause).toHaveBeenCalled();
   });
 
