@@ -1,6 +1,6 @@
 {
   "name": "a11ybar",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Zero-dependency accessibility toolbar mapped to WCAG 2.2, eMAG 3.1 and ABNT NBR 17225 — text scaling without reload, high contrast, reading comfort, motion pause, link underlining and opt-in VLibras.",
   "main": "src/a11ybar.js",
   "scripts": {

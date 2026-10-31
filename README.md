@@ -27,21 +27,24 @@ That's it — no build step, no framework, no CSS file. **[Try the live demo →
 
 | Button | What it does | Grounded in |
 |---|---|---|
-| `A−` / `A+` | Text scaling via **one CSS custom property** on `:root` (no per-element loop, no reload) | WCAG **1.4.4** Resize Text · eMAG rec. 28 |
+| `A−` / `A+` | Text scaling via **one CSS custom property** on `:root` (no per-element loop, no reload). It **multiplies the site's own root size**, so `html{font-size:62.5%}` sites step 1.15× instead of jumping 1.84× | WCAG **1.4.4** Resize Text · eMAG rec. 28 |
 | ◐ | High contrast — curated eMAG-style palette (black bg 21:1, cyan links 16.7:1, yellow controls 19.6:1) + yellow `:focus-visible` everywhere; media keeps real colours | WCAG **1.4.3/1.4.6** Contrast · **2.4.7** Focus Visible · eMAG 4.1 |
 | ≡ | Reading comfort: applies the WCAG text-spacing minimums (line 1.5+, letter .12em, word .16em) | WCAG **1.4.12** Text Spacing · dyslexia guidance |
-| ⏸ | Pauses all CSS animations/transitions/smooth-scroll | WCAG **2.2.2** Pause, Stop, Hide · **2.3.3** Animation from Interactions · GAIA (autism) |
+| ⏸ | Pauses all CSS animations/transitions/smooth-scroll **and autoplaying video/audio** — including media that starts later (SPA players), on every path: the button, the OS preference at boot, saved prefs after a reload, and reset | WCAG **2.2.2** Pause, Stop, Hide · **2.3.3** Animation from Interactions · GAIA (autism) |
 | ⎁ | Underlines every link — colour is never the only cue | WCAG **1.4.1** Use of Color |
-| 🤟 | Loads the official [VLibras](https://vlibras.gov.br) widget on demand (opt-in) | Lei 13.146/2015 (LBI) · eMAG |
-| ↺ | Restores defaults | — |
+| 🤟 | Loads the official [VLibras](https://vlibras.gov.br) widget on demand (opt-in) and **opens Libras in one click** (plugin v7 API) | Lei 13.146/2015 (LBI) · eMAG |
+| ↺ | Restores defaults — and forgets saved prefs, so the OS `prefers-reduced-motion` keeps applying | WCAG 2.3.3 |
 
 **The toolbar itself is accessible** — that's the point:
 
+- **First Tab stop of the page**: the bar is the first node of `<body>` (visually it stays in its corner), as the eMAG accessibility bar is.
 - `role="toolbar"` with a proper `aria-label`, following the [ARIA APG toolbar pattern](https://www.w3.org/WAI/ARIA/apg/patterns/toolbar/) (roving tabindex: ←/→/Home/End navigate, one Tab stop).
-- Every toggle exposes **`aria-pressed`** state; every button has an accessible name.
+- Every toggle exposes **`aria-pressed`** state; every button has an accessible name. Changes with no visible state of their own (text size, reset, a failed VLibras load) are announced through a polite **`role="status"`** live region.
 - Targets are **≥ 44×44 px** (WCAG 2.5.5/2.5.8) with a strong `:focus-visible` indicator (WCAG 2.4.7).
 - State changes are **O(1) class flips** on `<html>` — no page reload, scroll position preserved.
 - Preferences persist in `localStorage`; on first visit, **`prefers-reduced-motion` is honoured** automatically (WCAG 2.3.3).
+- **Robust by default:** it still renders where storage is blocked (Safari private mode, sandboxed iframes), ignores corrupted saved prefs, validates its own config (an unknown `position` falls back to `bottom-right`), and initialises once even if the script is included twice.
+- **Page effects never restyle the toolbar or the VLibras widget** — neither the contrast palette nor the reading-comfort spacing.
 
 ## Configuration
 
@@ -64,11 +67,12 @@ window.A11ybarConfig = {
 
 - Text scaling follows sites that size text in `rem`/`%` (best practice); fixed `px` typography won't scale — that's a bug in the page, and a11ybar won't paper over it with DOM-walking hacks.
 - High contrast forces a black/white/cyan/yellow palette with `!important` — deliberate (it must win over any page CSS), but a palette hand-tuned per-site is always superior when you control the stylesheet. No CSS `filter` is used: filters on the root element break `position:fixed` widgets (including VLibras) and wash colours out.
-- VLibras loads an external government script — hence opt-in.
+- Motion pause freezes CSS and media, not **JavaScript-driven** carousels or animated GIFs — those need a pause control in the page itself (WCAG 2.2.2).
+- VLibras loads an external government script — hence opt-in. a11ybar targets the current plugin (v7), which renders in its own shadow DOM; it never calls the page's `window.onload` (older integrations did, and re-ran the host page's load logic).
 
 ## Testing
 
-12 behavioural tests (vitest + jsdom) cover the ARIA structure, font scaling, `aria-pressed` state, persistence, `prefers-reduced-motion` and the roving-tabindex keyboard pattern:
+47 behavioural tests (vitest + jsdom) cover the ARIA structure, font scaling, `aria-pressed` state, persistence, `prefers-reduced-motion` and the roving-tabindex keyboard pattern. [`tests/adversarial.test.js`](tests/adversarial.test.js) and [`tests/review-round2.test.js`](tests/review-round2.test.js) pin every failure found in two adversarial reviews — blocked storage, corrupted prefs, double init, the VLibras `onload` side effect, reset vs. OS preferences — and the VLibras v7 flow was also verified in a real browser.
 
 ```bash
 npm install
@@ -78,7 +82,7 @@ npm test
 ## Roadmap
 
 - npm package + CDN build
-- Sister project: an **eMAG/ABNT-aware audit CLI** that generates instructional reports in the format Brazilian public institutions actually need.
+- Sister project: [**emag-audit**](https://github.com/fluiz7/emag-audit), the eMAG/WCAG audit CLI that generates instructional reports — *emag-audit finds the barriers; a11ybar ships the remediations.*
 
 ## License
 

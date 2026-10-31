@@ -6,6 +6,11 @@
 (function () {
   "use strict";
 
+  /* Script included twice (a CMS, a theme plus a plugin): the first copy owns the page.
+     A second closure would overwrite window.a11ybar with an instance that never built
+     the toolbar, and every call through it would read the wrong state. */
+  if (window.a11ybar && typeof window.a11ybar.init === "function") return;
+
   var STORAGE_KEY = "a11ybar:prefs";
   var FONT_STEPS = [1, 1.15, 1.3, 1.5];
 
@@ -19,7 +24,10 @@
       motion: "Pausar animações e movimentos",
       links: "Sublinhar todos os links",
       vlibras: "Ativar tradução em Libras (VLibras)",
-      reset: "Restaurar configurações padrão"
+      reset: "Restaurar configurações padrão",
+      sizeNow: "Tamanho do texto: ",
+      resetDone: "Configurações restauradas",
+      vlibrasFail: "Não foi possível carregar o VLibras. Verifique a conexão e tente de novo."
     },
     en: {
       toolbar: "Accessibility toolbar",
@@ -30,7 +38,10 @@
       motion: "Pause animations and motion",
       links: "Underline all links",
       vlibras: "Enable Libras translation (VLibras)",
-      reset: "Restore default settings"
+      reset: "Restore default settings",
+      sizeNow: "Text size: ",
+      resetDone: "Settings restored",
+      vlibrasFail: "Could not load VLibras. Check your connection and try again."
     }
   };
 
@@ -40,11 +51,15 @@
      no page reload — state flips are O(1). */
   /* ------------------------------------------------------------------ */
   /* Selectors excluded from the forced high-contrast palette: the toolbar
-     itself, the VLibras widget, and anything the page marks with
+     itself, the VLibras widget (v7 hosts #vlibras-access-wrapper / #vlibras-app-root,
+     and the legacy [vw] markup), and anything the page marks with
      data-a11ybar-keep (elements whose colours carry meaning — charts,
      colour swatches, brand marks). */
-  var NX = ":not(.a11ybar):not(.a11ybar *):not([vw]):not([vw] *)" +
-           ":not([data-a11ybar-keep]):not([data-a11ybar-keep] *)";
+  /* UI that must keep its own typography and colours: the toolbar and the VLibras widget. */
+  var OWN_UI = ":not(.a11ybar):not(.a11ybar *):not([vw]):not([vw] *)" +
+               ":not(#vlibras-access-wrapper):not(#vlibras-access-wrapper *)" +
+               ":not(#vlibras-app-root):not(#vlibras-app-root *)";
+  var NX = OWN_UI + ":not([data-a11ybar-keep]):not([data-a11ybar-keep] *)";
 
   var CSS = [
     /* --- toolbar shell (WCAG 2.5.8/2.5.5: targets >= 44px) --- */
@@ -60,7 +75,7 @@
     ".a11ybar button[aria-pressed=\"true\"]{background:#e94560;border-color:#fff}",
     /* --- page effects --- */
     /* font scale: one custom property, rem-based sites follow automatically */
-    "html.a11ybar-font{font-size:calc(100% * var(--a11ybar-font-scale,1)) !important}",
+    "html.a11ybar-font{font-size:calc(var(--a11ybar-font-base,100%) * var(--a11ybar-font-scale,1)) !important}",
     /* high contrast: curated eMAG-style palette (no CSS filter — filters on the
        root break position:fixed widgets like VLibras and wash colours out).
        Black bg + white text (21:1), cyan links (16.7:1), yellow controls/focus
@@ -72,21 +87,25 @@
     "{background-color:#000 !important;color:#fff !important;border-color:#fff !important;",
     "box-shadow:none !important;text-shadow:none !important}",
     /* `body a` (not bare `a`) so this outranks the generic rule above */
-    "html.a11ybar-contrast body a" + NX + ",html.a11ybar-contrast body a" + NX + " *",
+    /* NX goes on BOTH the link and its descendants: attached only to `a`, a
+       data-a11ybar-keep badge inside a link still matched `a:not(…) *` and turned cyan */
+    "html.a11ybar-contrast body a" + NX + ",html.a11ybar-contrast body a " + "*" + NX,
     "{color:#0ff !important;text-decoration:underline !important}",
     "html.a11ybar-contrast body button" + NX + ",html.a11ybar-contrast body input" + NX + ",",
     "html.a11ybar-contrast body select" + NX + ",html.a11ybar-contrast body textarea" + NX,
-    "{background:#000 !important;color:#ff0 !important;border:2px solid #ff0 !important}",
+    "{background-color:#000 !important;color:#ff0 !important;border:2px solid #ff0 !important}",
     "html.a11ybar-contrast img,html.a11ybar-contrast video{filter:none !important}",
     /* visible focus everywhere while in contrast mode (eMAG focus pattern) */
     "html.a11ybar-contrast :focus-visible{outline:3px solid #ff0 !important;outline-offset:2px}",
     /* reading comfort: WCAG 1.4.12 text-spacing minimums */
-    "html.a11ybar-spacing body *{line-height:1.6 !important;letter-spacing:.12em !important;",
+    /* (OWN_UI: the toolbar's own buttons and the VLibras widget keep their spacing) */
+    "html.a11ybar-spacing body *" + OWN_UI + "{line-height:1.6 !important;letter-spacing:.12em !important;",
     "word-spacing:.16em !important}",
-    "html.a11ybar-spacing body p{margin-bottom:2em !important}",
+    "html.a11ybar-spacing body p" + OWN_UI + "{margin-bottom:2em !important}",
     /* motion pause: freezes CSS animation/transition/smooth-scroll (WCAG 2.2.2 / 2.3.3) */
     "html.a11ybar-motion *,html.a11ybar-motion *::before,html.a11ybar-motion *::after",
     "{animation-play-state:paused !important;transition:none !important;scroll-behavior:auto !important}",
+    ".a11ybar-status{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}",
     /* link underline: WCAG 1.4.1 — never rely on colour alone */
     "html.a11ybar-links a{text-decoration:underline !important;text-underline-offset:2px}"
   ].join("");
@@ -94,68 +113,125 @@
   /* ------------------------------------------------------------------ */
   /* State                                                                */
   /* ------------------------------------------------------------------ */
-  var state = { fontStep: 0, contrast: false, spacing: false, motion: false, links: false };
+  function defaults() {
+    return { fontStep: 0, contrast: false, spacing: false, motion: false, links: false };
+  }
+  var state = defaults();
 
-  function loadState() {
+  /* Every storage access goes through these two. In Safari private mode, sandboxed
+     iframes or with site data blocked, merely READING `localStorage` throws — an
+     unguarded access anywhere stops the whole toolbar from rendering. */
+  function storageGet() {
+    try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
+  }
+  function storageSet(value) {
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        var saved = JSON.parse(raw);
-        for (var k in state) if (k in saved) state[k] = saved[k];
-      }
-    } catch (e) { /* private mode etc. — run without persistence */ }
+      if (value === null) localStorage.removeItem(STORAGE_KEY);
+      else localStorage.setItem(STORAGE_KEY, value);
+    } catch (e) { /* no persistence available — the toolbar still works */ }
   }
 
-  function saveState() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+  /* Saved prefs are untrusted input (old versions, manual edits, other scripts):
+     accept only valid values, keep the default otherwise. */
+  function loadState() {
+    var raw = storageGet();
+    if (!raw) return false;
+    try {
+      var saved = JSON.parse(raw) || {};
+      var step = saved.fontStep;
+      if (typeof step === "number" && step % 1 === 0 && step >= 0 && step < FONT_STEPS.length) state.fontStep = step;
+      ["contrast", "spacing", "motion", "links"].forEach(function (k) {
+        if (typeof saved[k] === "boolean") state[k] = saved[k];
+      });
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function saveState() { storageSet(JSON.stringify(state)); }
+
+  function prefersReducedMotion() {
+    return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  /* Root font size the SITE intended, measured with our override switched off. Scaling
+     multiplies this instead of replacing it: sites using the `html{font-size:62.5%}`
+     rem idiom would otherwise jump from 62.5% to 115% (~1.84x) on the first A+. */
+  function siteRootFontSize() {
+    var root = document.documentElement;
+    var had = root.classList.contains("a11ybar-font");
+    root.classList.remove("a11ybar-font");
+    var size = window.getComputedStyle ? window.getComputedStyle(root).fontSize : "";
+    if (had) root.classList.add("a11ybar-font");
+    return /^\d+(\.\d+)?px$/.test(size) ? size : "100%";
   }
 
   function applyState() {
     var root = document.documentElement;
+    if (state.fontStep > 0) root.style.setProperty("--a11ybar-font-base", siteRootFontSize());
     root.style.setProperty("--a11ybar-font-scale", String(FONT_STEPS[state.fontStep]));
     root.classList.toggle("a11ybar-font", state.fontStep > 0);
     root.classList.toggle("a11ybar-contrast", state.contrast);
     root.classList.toggle("a11ybar-spacing", state.spacing);
     root.classList.toggle("a11ybar-motion", state.motion);
     root.classList.toggle("a11ybar-links", state.links);
+    /* every path that turns motion pause on goes through here: the button, the OS
+       preference at boot, saved prefs after a reload, and reset */
+    pauseAutoplayMedia();
   }
 
   /* ------------------------------------------------------------------ */
   /* VLibras (opt-in): loads the official government widget on demand     */
   /* ------------------------------------------------------------------ */
-  var vlibrasLoaded = false;
-  function loadVLibras() {
-    if (vlibrasLoaded) return;
-    vlibrasLoaded = true;
-    var host = document.createElement("div");
-    host.setAttribute("vw", "");
-    host.className = "enabled";
-    host.innerHTML =
-      '<div vw-access-button class="active"></div>' +
-      '<div vw-plugin-wrapper><div class="vw-plugin-top-wrapper"></div></div>';
-    document.body.appendChild(host);
+  var VLIBRAS_SRC = "https://vlibras.gov.br/app/vlibras-plugin.js";
+  var vlibrasLoading = false;
 
-    /* The official gov.br script is a LOADER that chains the real plugin from a
-       CDN, and the real plugin initialises itself by assigning window.onload —
-       which has already fired by the time the user clicks. So: poll until the
-       real plugin arrives, instantiate the widget, then invoke the plugin's
-       onload hook ourselves (it chains any previous handler internally). */
+  /* Current official plugin (v7, served via redirect to jsDelivr) builds its own widget:
+     it initialises on DOMContentLoaded / a 50 ms timer, renders into its own
+     #vlibras-access-wrapper (shadow DOM) and exposes window.VLibrasWidget.open().
+     So: no legacy <div vw> markup, and NO call to window.onload — in v7 that handler
+     belongs to the host page, and calling it re-ran the page's own load logic.
+     One click on our button opens the Libras app directly. */
+  function openVLibras(onFail) {
+    if (window.VLibrasWidget && typeof window.VLibrasWidget.open === "function") {
+      window.VLibrasWidget.open();
+      return;
+    }
+    if (vlibrasLoading) return;
+    vlibrasLoading = true;
+
     var s = document.createElement("script");
-    s.src = "https://vlibras.gov.br/app/vlibras-plugin.js";
-    document.body.appendChild(s);
-
-    var tries = 0;
-    var timer = setInterval(function () {
-      tries += 1;
-      if (window.VLibras && typeof window.VLibras.Widget === "function") {
-        clearInterval(timer);
-        new window.VLibras.Widget("https://vlibras.gov.br/app");
-        if (typeof window.onload === "function") window.onload();
-      } else if (tries > 100) { /* ~20s: CDN unreachable — allow a retry */
-        clearInterval(timer);
-        vlibrasLoaded = false;
+    s.src = VLIBRAS_SRC;
+    /* every failure path releases the lock AND removes the failed tag, so a retry
+       starts clean instead of piling <script> elements into the page */
+    function fail() {
+      vlibrasLoading = false;
+      if (s.parentNode) s.parentNode.removeChild(s);
+      onFail();
+    }
+    s.onerror = fail;
+    s.onload = function () {
+      try {
+        if (window.VLibras && typeof window.VLibras.Widget === "function") {
+          new window.VLibras.Widget("https://vlibras.gov.br/app"); /* idempotent in v7 */
+        }
+      } catch (e) {
+        fail(); /* a throwing plugin must not leave the button locked forever */
+        return;
       }
-    }, 200);
+      var tries = 0;
+      var timer = setInterval(function () {
+        tries += 1;
+        if (window.VLibrasWidget && typeof window.VLibrasWidget.open === "function") {
+          clearInterval(timer);
+          vlibrasLoading = false;
+          window.VLibrasWidget.open();
+        } else if (tries > 50) { /* ~5 s: unexpected plugin API — allow a retry */
+          clearInterval(timer);
+          fail();
+        }
+      }, 100);
+    };
+    document.body.appendChild(s);
   }
 
   /* ------------------------------------------------------------------ */
@@ -172,7 +248,8 @@
       opts.onClick();
       if (opts.toggle) b.setAttribute("aria-pressed", String(!!opts.pressed()));
       applyState();
-      saveState();
+      if (opts.label === "reset") storageSet(null); /* forget prefs: next visit = first visit */
+      else if (opts.label !== "vlibras") saveState();
     });
     return b;
   }
@@ -180,37 +257,67 @@
   function build(config) {
     var t = I18N[config.lang] || I18N["pt-BR"];
 
-    var style = document.createElement("style");
-    style.textContent = CSS;
-    document.head.appendChild(style);
+    /* one stylesheet per document: a re-init after a <body> swap must not inject it again */
+    if (!document.head.querySelector("style[data-a11ybar-style]")) {
+      var style = document.createElement("style");
+      style.setAttribute("data-a11ybar-style", "");
+      style.textContent = CSS;
+      document.head.appendChild(style);
+    }
 
     var bar = document.createElement("div");
     bar.className = "a11ybar a11ybar--" + config.position;
     bar.setAttribute("role", "toolbar");
     bar.setAttribute("aria-label", t.toolbar);
 
+    /* Polite live region: changes with no visible state of their own (text size, reset,
+       a failed VLibras load) are announced to screen-reader users. Toggles already
+       expose aria-pressed, so they are not repeated here. */
+    var status = document.createElement("div");
+    status.className = "a11ybar-status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    function announce(msg) {
+      status.textContent = "";
+      setTimeout(function () { status.textContent = msg; }, 50); /* re-announce identical text */
+    }
+    function announceSize() {
+      announce(t.sizeNow + Math.round(FONT_STEPS[state.fontStep] * 100) + "%");
+    }
+
     var buttons = [
-      { glyph: "A−", label: "fontDec", onClick: function () { state.fontStep = Math.max(0, state.fontStep - 1); } },
-      { glyph: "A+", label: "fontInc", onClick: function () { state.fontStep = Math.min(FONT_STEPS.length - 1, state.fontStep + 1); } },
+      { glyph: "A−", label: "fontDec", onClick: function () { state.fontStep = Math.max(0, state.fontStep - 1); announceSize(); } },
+      { glyph: "A+", label: "fontInc", onClick: function () { state.fontStep = Math.min(FONT_STEPS.length - 1, state.fontStep + 1); announceSize(); } },
       { glyph: "◐", label: "contrast", toggle: true, pressed: function () { return state.contrast; }, onClick: function () { state.contrast = !state.contrast; } },
       { glyph: "≡", label: "spacing", toggle: true, pressed: function () { return state.spacing; }, onClick: function () { state.spacing = !state.spacing; } },
       { glyph: "⏸", label: "motion", toggle: true, pressed: function () { return state.motion; }, onClick: function () { state.motion = !state.motion; } },
       { glyph: "⎁", label: "links", toggle: true, pressed: function () { return state.links; }, onClick: function () { state.links = !state.links; } }
     ];
     if (config.vlibras) {
-      buttons.push({ glyph: "🤟", label: "vlibras", onClick: loadVLibras });
+      buttons.push({ glyph: "🤟", label: "vlibras", onClick: function () {
+        openVLibras(function () { announce(t.vlibrasFail); });
+      } });
     }
     buttons.push({
       glyph: "↺", label: "reset",
       onClick: function () {
-        state = { fontStep: 0, contrast: false, spacing: false, motion: false, links: false };
-        Array.prototype.forEach.call(bar.querySelectorAll("[aria-pressed]"), function (el) {
-          el.setAttribute("aria-pressed", "false");
-        });
+        state = defaults();
+        /* "default" includes the OS preference: a user who asked the system for reduced
+           motion must not get animations back by pressing reset (WCAG 2.3.3) */
+        state.motion = prefersReducedMotion();
+        /* "restore defaults" is an explicit choice, like turning pause off and on: a new
+           pause generation, so autoplay media is stopped again as on a fresh load. (Not on
+           re-init: a Turbo-permanent player the user is watching survives navigation.) */
+        pauseGeneration += 1;
+        syncPressed();
+        announce(t.resetDone);
       }
     });
 
-    buttons.forEach(function (opts) { bar.appendChild(buildButton(t, opts)); });
+    var built = buttons.map(function (opts) { var b = buildButton(t, opts); bar.appendChild(b); return { el: b, opts: opts }; });
+    function syncPressed() {
+      built.forEach(function (x) { if (x.opts.toggle) x.el.setAttribute("aria-pressed", String(!!x.opts.pressed())); });
+    }
 
     /* roving tabindex: one tab stop; arrows navigate inside the toolbar */
     var items = Array.prototype.slice.call(bar.querySelectorAll("button"));
@@ -231,25 +338,81 @@
       }
     });
 
-    document.body.appendChild(bar);
+    bar.appendChild(status);
+    /* First node of <body>: it stays visually fixed in its corner, but in the Tab order it
+       comes first — as the eMAG accessibility bar does — instead of after the whole page. */
+    document.body.insertBefore(bar, document.body.firstChild);
+  }
+
+  /* CSS can freeze animations but not media: pause autoplaying video/audio too (WCAG 2.2.2).
+     ONCE per element: stopping media that started BY ITSELF is the point; stopping the
+     user's own Play is a barrier (the `autoplay` attribute stays in the DOM, so it can't tell
+     the two apart). Each element is stamped with the current "pause generation"; turning
+     motion pause off and on again starts a new generation, which re-pauses everything. */
+  var pauseGeneration = 1;
+  var lastMotion = false;
+  var ownBar = null; /* the toolbar this instance built */
+
+  function pauseOnce(m) {
+    if (m.__a11ybarPaused === pauseGeneration) return; /* already stopped once: Play is the user's */
+    m.__a11ybarPaused = pauseGeneration;
+    try { m.pause(); } catch (e) { /* not supported */ }
+  }
+
+  function pauseAutoplayMedia() {
+    if (lastMotion && !state.motion) pauseGeneration += 1;
+    lastMotion = state.motion;
+    if (!state.motion) return;
+    Array.prototype.forEach.call(document.querySelectorAll("video[autoplay], audio[autoplay]"), pauseOnce);
+  }
+
+  /* media that starts AFTER boot (autoplay racing init, players injected by an SPA):
+     `play` doesn't bubble, so listen in the capture phase. One listener per page — a
+     re-init replaces it — and it acts only while a toolbar is on the page. */
+  function onPlay(ev) {
+    var m = ev.target;
+    if (!state.motion || !m || !m.hasAttribute || !m.hasAttribute("autoplay")) return;
+    if (!ownBar || !ownBar.isConnected) return; /* THIS instance's toolbar, not just any */
+    /* a play caused by a real click (user activation, where supported) is always honoured */
+    if (navigator.userActivation && navigator.userActivation.isActive) {
+      m.__a11ybarPaused = pauseGeneration;
+      return;
+    }
+    pauseOnce(m);
   }
 
   /* ------------------------------------------------------------------ */
   /* Init                                                                 */
   /* ------------------------------------------------------------------ */
+  var POSITIONS = ["top-right", "top-left", "bottom-right", "bottom-left"];
+
   function init(userConfig) {
     var config = { lang: "pt-BR", position: "bottom-right", vlibras: false };
     var g = userConfig || window.A11ybarConfig || {};
     for (var k in config) if (k in g) config[k] = g[k];
+    /* config is input too: an unknown position (e.g. "top") has no CSS rule, and a
+       position:fixed bar with no coordinates lands over the top of the page */
+    if (POSITIONS.indexOf(config.position) < 0) config.position = "bottom-right";
+    if (!I18N[config.lang]) config.lang = "pt-BR";
+    config.vlibras = config.vlibras === true;
 
-    loadState();
+    /* Idempotent: a CMS that includes the script twice, or a manual init() on top of
+       the automatic one, must not produce two toolbars. */
+    if (document.querySelector(".a11ybar")) return;
+
+    /* a re-init (SPA/Turbo/HTMX swapped <body> but kept <head>) starts from a clean state:
+       with storage blocked, nothing would otherwise overwrite the previous page's state */
+    state = defaults();
+    lastMotion = false;
+
     /* OS-level preference wins on first visit (WCAG 2.3.3) */
-    if (!localStorage.getItem(STORAGE_KEY) &&
-        window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      state.motion = true;
-    }
+    if (!loadState() && prefersReducedMotion()) state.motion = true;
     applyState();
     build(config);
+    ownBar = document.querySelector(".a11ybar");
+
+    document.removeEventListener("play", onPlay, true);
+    document.addEventListener("play", onPlay, true);
   }
 
   window.a11ybar = { init: init, _state: function () { return state; } };
