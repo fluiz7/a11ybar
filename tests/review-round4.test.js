@@ -2,7 +2,7 @@
  * Regression tests for the fourth adversarial review of PR #1 (review of commit 4badb33).
  * Findings 2 and 3 reproduced against that commit before being fixed. Finding 1 was
  * refuted in Chromium: pause() on a still-loading autoplay element cancels the pending
- * autoplay (HTML "internal pause steps" clear the can-autoplay flag), so stamping it is right.
+ * autoplay (measured: it loads fully and never fires `play`), so stamping it is right.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
